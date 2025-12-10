@@ -1,0 +1,89 @@
+Use Case Diagram for "Blog" application (UML-style, textual)
+
+Overview
+- Primary actors: Visitor (anonymous), Registered User, Admin
+- Supporting actors: Email Service (external), Storage (MEDIA), Database
+- System: Blog Web Application
+
+Use Cases (high-level):
+- Browse Posts (Visitor, Registered User)
+- View Post Details (Visitor, Registered User)
+- Register (Visitor)
+- Login/Logout (Visitor/Registered User)
+- Create Post (Registered User)
+- Edit Post (Registered User)
+- Delete Post (Registered User, Admin)
+- Upload Image (Registered User) [via Froala Editor]
+- Manage Profile (Registered User)
+- Moderate Content (Admin)
+- Serve Media (Storage)
+- Admin Manage Users (Admin)
+
+UML-style textual diagram
+
+Actors:
+- [Visitor]
+- [RegisteredUser]
+- [Admin]
+
+System boundary: (Blog Web App)
+
+Use Cases and associations:
+- [Visitor] -> (Browse Posts)
+- [Visitor] -> (View Post Details)
+- [Visitor] -> (Register)
+- [Visitor] -> (Login/Logout)
+
+- [RegisteredUser] -> (Browse Posts)
+- [RegisteredUser] -> (View Post Details)
+- [RegisteredUser] -> (Create Post)
+- [RegisteredUser] -> (Edit Post)
+- [RegisteredUser] -> (Delete Post)
+- [RegisteredUser] -> (Upload Image)
+- [RegisteredUser] -> (Manage Profile)
+
+- [Admin] -> (Moderate Content)
+- [Admin] -> (Admin Manage Users)
+- [Admin] -> (Delete Post)  {can delete any post}
+
+Include / Extend relationships:
+- (Create Post) --extend--> (Upload Image)  [Upload Image extends Create Post when user inserts images]
+- (Edit Post) --extend--> (Upload Image)
+- (Register) --include--> (Email Service)  [send confirmation email]
+
+Notes:
+- (Upload Image) interacts with Storage (MEDIA) and provides a link back to the editor.
+- (Serve Media) is a supporting system function used by Browse/View Post Details.
+
+Optional PlantUML text (paste into PlantUML to render):
+
+@startuml
+left to right direction
+actor Visitor
+actor RegisteredUser as User
+actor Admin
+rectangle "Blog Web App" {
+  Visitor -- (Browse Posts)
+  Visitor -- (View Post Details)
+  Visitor -- (Register)
+  Visitor -- (Login/Logout)
+
+  User -- (Browse Posts)
+  User -- (View Post Details)
+  User -- (Create Post)
+  User -- (Edit Post)
+  User -- (Delete Post)
+  User -- (Upload Image)
+  User -- (Manage Profile)
+
+  Admin -- (Moderate Content)
+  Admin -- (Admin Manage Users)
+  Admin -- (Delete Post)
+
+  (Create Post) .u.> (Upload Image) : <<extend>>
+  (Edit Post) .u.> (Upload Image) : <<extend>>
+  (Register) .u.> (Email Service) : <<include>>
+}
+@enduml
+
+If you want a PNG/SVG render, I can produce the PlantUML output and render it (requires PlantUML/JDK or external service). Otherwise this text follows UML use-case conventions and should be sufficient for documentation.

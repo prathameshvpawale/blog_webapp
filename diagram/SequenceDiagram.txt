@@ -1,0 +1,166 @@
+Sequence Diagrams for "Blog" application (UML-style, textual + PlantUML)
+
+Notation / Legend
+- Lifelines: Actor or component participating in the sequence
+- Messages: -> for synchronous call, --> for return
+- Activation: shown implicitly by message order
+- Guards/notes: {condition}
+- PlantUML blocks provided for rendering with PlantUML if desired
+
+--- Diagram 1: Create Post with Froala Image Upload ---
+Participants: User (browser), FroalaJS (client), Django View (/froala_editor/upload_image/), Storage (MEDIA), Posts DB, Django Post Create View
+
+Steps (textual):
+1. User selects "Insert Image" in Froala editor.
+2. FroalaJS sends AJAX POST to `/froala_editor/upload_image/` with form-data (file) and optional `post_id`.
+3. Django View receives POST, validates CSRF and file types/size.
+4. Django View determines path: `media/blog_pics/<username>/post_<id>/images/` or `new_<timestamp>`.
+5. Django View writes file to Storage and returns JSON `{"link": "/media/..."}`.
+6. FroalaJS receives JSON and inserts `<img src="/media/...">` into editor content.
+7. User submits post form to Django Post Create View.
+8. Django Post Create View validates form and saves a Post record to Posts DB; the content contains the image URL.
+9. Server redirects to Post detail page.
+
+PlantUML (renderable):
+@startuml CreatePostWithUpload
+actor User
+participant FroalaJS as "FroalaJS (Browser)"
+participant UploadView as "Django Upload View"
+participant Storage as "MEDIA Storage"
+participant PostCreate as "Django Post Create View"
+participant DB as "Posts DB"
+
+User -> FroalaJS: choose image file
+FroalaJS -> UploadView: POST /froala_editor/upload_image/ (file, post_id?)
+UploadView -> UploadView: validate CSRF, file type/size
+alt valid
+  UploadView -> Storage: write file to media/blog_pics/.../images/<uuid>
+  Storage --> UploadView: 201/OK
+  UploadView --> FroalaJS: JSON {"link": "/media/..."}
+else invalid
+  UploadView --> FroalaJS: 400/403 error
+end
+FroalaJS -> User: insert image link into editor
+User -> PostCreate: submit post form (content includes image link)
+PostCreate -> DB: save Post record
+DB --> PostCreate: saved
+PostCreate --> User: redirect to post detail
+@enduml
+
+--- Diagram 2: Edit Post (with image upload to existing post folder) ---
+Participants: User, FroalaJS, UploadView, Storage, PostEditView, DB
+
+Textual:
+1. User opens edit page; Froala initialized with existing content.
+2. User inserts a new image; FroalaJS sends POST with `post_id`.
+3. UploadView saves file under `.../post_<post_id>/images/` and returns JSON link.
+4. Froala inserts link, user submits form.
+5. PostEditView updates post in DB; optionally cleans up removed images.
+
+PlantUML:
+@startuml EditPostWithUpload
+actor User
+participant FroalaJS
+participant UploadView
+participant Storage
+participant PostEdit
+participant DB
+
+User -> FroalaJS: insert new image
+FroalaJS -> UploadView: POST /froala_editor/upload_image/ (file, post_id=42)
+UploadView -> Storage: write to media/blog_pics/<username>/post_42/images/<uuid>
+Storage --> UploadView: ok
+UploadView --> FroalaJS: {"link":"/media/..."}
+User -> PostEdit: submit edit form
+PostEdit -> DB: update post 42
+DB --> PostEdit: ok
+PostEdit --> User: redirect
+@enduml
+
+--- Diagram 3: User Registration (sequence) ---
+Participants: Visitor, RegisterView, Users DB, EmailService (external)
+
+Textual:
+1. Visitor submits registration form.
+2. RegisterView validates data and creates user in Users DB.
+3. If configured, RegisterView triggers EmailService to send confirmation.
+4. RegisterView logs in user or redirects.
+
+PlantUML:
+@startuml RegisterUser
+actor Visitor
+participant RegisterView
+participant UsersDB
+participant EmailService
+
+Visitor -> RegisterView: POST /register/ (username,email,password)
+RegisterView -> RegisterView: validate input
+alt valid
+  RegisterView -> UsersDB: create user
+  UsersDB --> RegisterView: user created
+  RegisterView -> EmailService: send confirmation email
+  EmailService --> RegisterView: sent
+  RegisterView --> Visitor: redirect / login
+else invalid
+  RegisterView --> Visitor: show form errors
+end
+@enduml
+
+--- Diagram 4: View Post / Content Delivery ---
+Participants: User, Django View (PostDetail), Posts DB, Storage
+
+Textual:
+1. User requests `/post/<id>/`.
+2. PostDetail view queries Posts DB for post data.
+3. PostDetail renders template containing `<img src="/media/...">` links.
+4. Browser requests image URLs; Storage serves images (dev: Django static serving; prod: web server/CDN).
+
+PlantUML:
+@startuml ViewPost
+actor User
+participant PostDetail
+participant PostsDB
+participant Storage
+
+User -> PostDetail: GET /post/42/
+PostDetail -> PostsDB: SELECT post 42
+PostsDB --> PostDetail: post data
+PostDetail --> User: HTML with image URLs
+User -> Storage: GET /media/blog_pics/.../image.jpg
+Storage --> User: 200 image bytes
+@enduml
+
+--- Diagram 5: Delete Post (user or admin) ---
+Participants: Actor(User/Admin), DeleteView, PostsDB, Storage
+
+Textual:
+1. Actor confirms deletion.
+2. DeleteView authorizes (owner or admin).
+3. DeleteView removes post from DB and optionally deletes storage files.
+4. DeleteView redirects with success.
+
+PlantUML:
+@startuml DeletePost
+actor Actor
+participant DeleteView
+participant PostsDB
+participant Storage
+
+Actor -> DeleteView: POST /post/<id>/delete
+DeleteView -> DeleteView: authorize
+alt authorized
+  DeleteView -> PostsDB: delete post
+  DeleteView -> Storage: delete /media/blog_pics/<username>/post_<id>/images/*
+  PostsDB --> DeleteView: ok
+  Storage --> DeleteView: ok
+  DeleteView --> Actor: redirect success
+else unauthorized
+  DeleteView --> Actor: 403 Forbidden
+end
+@enduml
+
+--- Notes on rendering ---
+- Paste PlantUML blocks into a PlantUML renderer (local or online) to get PNG/SVG outputs.
+- The textual descriptions follow UML sequence diagram semantics and show participants, messages, and alternative paths.
+
+End of Sequence Diagrams file

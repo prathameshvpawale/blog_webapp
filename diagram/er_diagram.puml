@@ -1,0 +1,38 @@
+@startuml Django_Blog_ER_Diagram
+!theme plain
+title Django Blog Project - ER Diagram
+
+entity "User\n(Django Auth)" as User {
+  *id : int <<PK>>
+  --
+  username : varchar(150) <<UNIQUE>>
+  email : varchar(254)
+  password : varchar(128)
+  first_name : varchar(30)
+  last_name : varchar(150)
+  is_staff : boolean
+  is_active : boolean
+  date_joined : datetime
+}
+
+entity "Post\n(blog app)" as Post {
+  *id : int <<PK>>
+  --
+  title : varchar(100)
+  content : text
+  image : varchar(100)
+  date_posted : datetime
+  author_id : int <<FK>>
+}
+
+entity "Profile\n(users app)" as Profile {
+  *id : int <<PK>>
+  --
+  user_id : int <<FK,UNIQUE>>
+  image : varchar(100)
+}
+
+User ||--o{ Post : "author"
+User ||--|| Profile : "has"
+
+@enduml

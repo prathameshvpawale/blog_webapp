@@ -1,0 +1,24 @@
+@startuml CreatePostWithUpload
+actor User
+participant FroalaJS as "FroalaJS (Browser)"
+participant UploadView as "Django Upload View"
+participant Storage as "MEDIA Storage"
+participant PostCreate as "Django Post Create View"
+participant DB as "Posts DB"
+
+User -> FroalaJS: choose image file
+FroalaJS -> UploadView: POST /froala_editor/upload_image/ (file, post_id?)
+UploadView -> UploadView: validate CSRF, file type/size
+alt valid
+  UploadView -> Storage: write file to media/blog_pics/.../images/<uuid>
+  Storage --> UploadView: 201/OK
+  UploadView --> FroalaJS: JSON {"link": "/media/..."}
+else invalid
+  UploadView --> FroalaJS: 400/403 error
+end
+FroalaJS -> User: insert image link into editor
+User -> PostCreate: submit post form (content includes image link)
+PostCreate -> DB: save Post record
+DB --> PostCreate: saved
+PostCreate --> User: redirect to post detail
+@enduml

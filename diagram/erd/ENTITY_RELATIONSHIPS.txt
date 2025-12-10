@@ -1,0 +1,155 @@
+ENTITY RELATIONSHIPS
+====================
+
+PROJECT: Django Blog Application
+DATABASE: SQLite (db.sqlite3)
+
+=== ENTITIES ===
+
+1. User (from Django's auth.models)
+   - id (PK)
+   - username (unique)
+   - email
+   - first_name
+   - last_name
+   - password
+   - is_active
+   - is_staff
+   - is_superuser
+   - date_joined
+   - last_login
+
+2. Post (blog.models)
+   - id (PK)
+   - title (CharField, max_length=100)
+   - content (FroalaField - HTML content with rich text)
+   - image (ImageField, nullable, upload_to='blog_pics/')
+   - date_posted (DateTimeField, default=now)
+   - author_id (FK to User)
+
+3. Profile (users.models)
+   - id (PK)
+   - user_id (OneToOneField to User)
+   - image (ImageField, default='profile.jpg', upload_to='profile_pics')
+
+=== RELATIONSHIPS ===
+
+1. User ←→ Post (One-to-Many)
+   - Type: Foreign Key
+   - Field: Post.author → User.id
+   - Cascade: ON_DELETE=CASCADE (deleting user deletes all their posts)
+   - Cardinality: One User has MANY Posts
+   - Reverse relation: User.post_set
+
+2. User ←→ Profile (One-to-One)
+   - Type: OneToOneField
+   - Field: Profile.user → User.id
+   - Cascade: ON_DELETE=CASCADE (deleting user deletes their profile)
+   - Cardinality: One User has ONE Profile
+   - Reverse relation: User.profile
+
+=== RELATIONSHIP DIAGRAM (Text) ===
+
+                    ┌──────────────┐
+                    │     User     │
+                    ├──────────────┤
+                    │ id (PK)      │
+                    │ username     │
+                    │ email        │
+                    │ password     │
+                    │ ...          │
+                    └──────┬───────┘
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+          (1:N)         (1:1)           │
+             │             │             │
+             ▼             ▼             │
+        ┌──────────┐  ┌─────────────┐   │
+        │   Post   │  │   Profile   │   │
+        ├──────────┤  ├─────────────┤   │
+        │ id (PK)  │  │ id (PK)     │   │
+        │ title    │  │ user_id(FK) │───┘
+        │ content  │  │ image       │
+        │ image    │  └─────────────┘
+        │ date_..  │
+        │ author_id├──┐
+        └──────────┘  │
+             ▲        │
+             └────────┘
+
+=== FOREIGN KEYS SUMMARY ===
+
+Post.author_id:
+  - References: User.id
+  - Type: ForeignKey
+  - Constraint: CASCADE (if User deleted, all Posts deleted)
+  - Nullable: NO (required field)
+  - Indexed: YES (automatic for FK)
+
+Profile.user_id:
+  - References: User.id
+  - Type: OneToOneField
+  - Constraint: CASCADE (if User deleted, Profile deleted)
+  - Nullable: NO (required field)
+  - Indexed: YES (automatic)
+  - Unique: YES (one-to-one constraint)
+
+=== CONSTRAINTS ===
+
+1. Primary Keys (Unique, Auto-increment):
+   - User.id
+   - Post.id
+   - Profile.id
+
+2. Foreign Key Constraints:
+   - Post.author_id REFERENCES User.id ON DELETE CASCADE
+   - Profile.user_id REFERENCES User.id ON DELETE CASCADE
+
+3. Unique Constraints:
+   - User.username (unique)
+   - User.email (unique per Django default)
+   - Profile.user_id (one-to-one uniqueness)
+
+4. NOT NULL Constraints:
+   - Post.title (required)
+   - Post.content (required)
+   - Post.author_id (required)
+   - Profile.user_id (required)
+   - Profile.image (required, has default value)
+
+=== DATA FLOW EXAMPLES ===
+
+Example 1: Create a Post
+  - User (authenticated) creates a new Post
+  - Post.author_id = current User.id
+  - Post stored with ForeignKey reference to User
+
+Example 2: User Registration
+  - User created in Django auth
+  - Signal (or manual code) creates Profile with OneToOneField
+  - Profile.user_id = new User.id
+  - Profile.image defaults to 'profile.jpg'
+
+Example 3: Delete User
+  - User record deleted
+  - ON DELETE CASCADE triggers:
+    - All Posts with author_id = User.id are deleted
+    - Profile with user_id = User.id is deleted
+
+Example 4: Upload Post Image
+  - Image uploaded to media/blog_pics/
+  - Stored path in Post.image field
+  - Froala editor also uploads to media/blog_pics/<user>/<post>/images/
+
+=== SUMMARY TABLE ===
+
+┌─────────┬──────────┬──────────────┬────────────┬──────────────┐
+│ Entity  │ Related  │ Relationship │ Cardinality│ Cascade      │
+├─────────┼──────────┼──────────────┼────────────┼──────────────┤
+│ Post    │ User     │ ForeignKey   │ N-to-1     │ ON_DELETE=   │
+│ (author)│ (author) │              │            │ CASCADE      │
+├─────────┼──────────┼──────────────┼────────────┼──────────────┤
+│Profile  │ User     │ OneToOneField│ 1-to-1     │ ON_DELETE=   │
+│         │          │              │            │ CASCADE      │
+└─────────┴──────────┴──────────────┴────────────┴──────────────┘

@@ -1,0 +1,106 @@
+@startuml CombinedSequence
+title Combined Sequence Diagrams: CreatePostWithUpload | DeletePost | EditPostWithUpload | RegisterUser | ViewPost
+
+' --- CreatePostWithUpload ---
+actor User
+participant FroalaJS as "FroalaJS (Browser)"
+participant UploadView as "Django Upload View"
+participant Storage as "MEDIA Storage"
+participant PostCreate as "Django Post Create View"
+participant DB as "Posts DB"
+
+User -> FroalaJS: choose image file
+FroalaJS -> UploadView: POST /froala_editor/upload_image/ (file, post_id?)
+UploadView -> UploadView: validate CSRF, file type/size
+alt valid
+  UploadView -> Storage: write file to media/blog_pics/.../images/<uuid>
+  Storage --> UploadView: 201/OK
+  UploadView --> FroalaJS: JSON {"link": "/media/..."}
+else invalid
+  UploadView --> FroalaJS: 400/403 error
+end
+FroalaJS -> User: insert image link into editor
+User -> PostCreate: submit post form (content includes image link + optional thumbnail file)
+alt thumbnail uploaded
+  PostCreate -> Storage: write thumbnail to media/blog_pics/thumbnails/<uuid>
+  Storage --> PostCreate: ok
+end
+PostCreate -> DB: save Post record (with thumbnail reference)
+DB --> PostCreate: saved
+PostCreate --> User: redirect to post detail
+
+' --- DeletePost ---
+actor Actor
+participant DeleteView
+participant PostsDB
+participant Storage as MediaStorage
+
+Actor -> DeleteView: POST /post/<id>/delete
+DeleteView -> DeleteView: authorize
+alt authorized
+  DeleteView -> PostsDB: delete post
+  DeleteView -> MediaStorage: delete /media/blog_pics/<username>/post_<id>/images/*
+  PostsDB --> DeleteView: ok
+  MediaStorage --> DeleteView: ok
+  DeleteView --> Actor: redirect success
+else unauthorized
+  DeleteView --> Actor: 403 Forbidden
+end
+
+' --- EditPostWithUpload ---
+actor Editor
+participant FroalaJS2 as "FroalaJS (Browser)"
+participant UploadView2 as "Django Upload View"
+participant Storage2 as "MEDIA Storage"
+participant PostEdit as "Django Post Edit View"
+participant DB2 as "Posts DB"
+
+Editor -> FroalaJS2: insert new image
+FroalaJS2 -> UploadView2: POST /froala_editor/upload_image/ (file, post_id=42)
+UploadView2 -> Storage2: write to media/blog_pics/<username>/post_42/images/<uuid>
+Storage2 --> UploadView2: ok
+UploadView2 --> FroalaJS2: {"link":"/media/..."}
+Editor -> PostEdit: submit edit form (content + optional thumbnail)
+alt thumbnail uploaded
+  PostEdit -> Storage2: write thumbnail to media/blog_pics/thumbnails/<uuid>
+  Storage2 --> PostEdit: ok
+end
+PostEdit -> DB2: update post 42 (thumbnail field updated if provided)
+DB2 --> PostEdit: ok
+PostEdit --> Editor: redirect
+
+' --- RegisterUser ---
+actor Visitor
+participant RegisterView
+participant UsersDB
+participant EmailService
+
+Visitor -> RegisterView: POST /register/ (username,email,password)
+RegisterView -> RegisterView: validate input
+alt valid
+  RegisterView -> UsersDB: create user
+  UsersDB --> RegisterView: user created
+  RegisterView -> EmailService: send confirmation email
+  EmailService --> RegisterView: sent
+  RegisterView --> Visitor: redirect / login
+else invalid
+  RegisterView --> Visitor: show form errors
+end
+
+' --- ViewPost (with comments and thumbnail) ---
+actor Viewer
+participant PostDetail
+participant PostsDB2 as PostsDB
+participant Storage3 as MEDIAStorage
+participant CommentsDB as CommentsDB
+
+Viewer -> PostDetail: GET /post/42/
+PostDetail -> PostsDB2: SELECT post 42
+PostsDB2 --> PostDetail: post data (title, content, image, thumbnail)
+PostDetail -> CommentsDB: SELECT comments WHERE post_id=42 ORDER BY date_posted DESC
+CommentsDB --> PostDetail: comment rows
+PostDetail --> Viewer: HTML with image URLs and comments
+Viewer -> Storage3: GET /media/blog_pics/.../image.jpg
+Storage3 --> Viewer: 200 image bytes
+
+@enduml

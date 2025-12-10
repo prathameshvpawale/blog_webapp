@@ -1,0 +1,28 @@
+@startuml BlogDeployment
+node "Client (Browser)" as Client
+node "Load Balancer / Reverse Proxy\n(Nginx)" as LB
+node "CDN / Static Server" as CDN
+
+node "App Host(s)" as AppHost {
+  [Gunicorn]
+  [Django App Container\n(app_image:myblog)]
+}
+
+node "Database Server" as DB
+node "Object Storage / S3" as S3
+node "Redis (Cache / Broker)" as Redis
+node "Celery Workers" as Celery
+node "SMTP / Email Service" as Email
+
+Client --> LB : HTTPS (443)
+LB --> CDN : GET static (cache)
+LB --> AppHost : HTTP  -> Gunicorn (8000)
+AppHost --> DB : SQL (5432)
+AppHost --> S3 : PUT/GET (S3 API)
+AppHost --> Redis : cache/broker (6379)
+AppHost --> Email : SMTP/API
+Celery --> Redis : subscribe / publish
+Celery --> DB : read/write
+Celery --> S3 : read/write
+
+@enduml

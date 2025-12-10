@@ -1,0 +1,44 @@
+@startuml BlogClassDiagram
+' Entities
+class User {
+  +Integer id
+  +String username
+  +String email
+  +String password
+  +Boolean is_active
+  +Boolean is_staff
+  +check_password(pwd)
+  +set_password(pwd)
+}
+
+class Profile {
+  +Integer id
+  +ImageField image
+  +__str__() : String
+}
+
+class Post {
+  +Integer id
+  +String title
+  +FroalaField content
+  +ImageField image
+  +ImageField thumbnail
+  +DateTime date_posted
+  +get_absolute_url() : URL
+  +__str__() : String
+}
+
+' Relationships
+User "1" -- "1" Profile : has >
+User "1" -- "*" Post : authors >
+
+class Comment {
+  +Integer id
+  +Text content
+  +DateTime date_posted
+  +__str__() : String
+}
+
+Post "1" -- "*" Comment : has >
+
+@enduml

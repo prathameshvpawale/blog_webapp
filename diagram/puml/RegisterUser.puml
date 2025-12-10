@@ -1,0 +1,18 @@
+@startuml RegisterUser
+actor Visitor
+participant RegisterView
+participant UsersDB
+participant EmailService
+
+Visitor -> RegisterView: POST /register/ (username,email,password)
+RegisterView -> RegisterView: validate input
+alt valid
+  RegisterView -> UsersDB: create user
+  UsersDB --> RegisterView: user created
+  RegisterView -> EmailService: send confirmation email
+  EmailService --> RegisterView: sent
+  RegisterView --> Visitor: redirect / login
+else invalid
+  RegisterView --> Visitor: show form errors
+end
+@enduml

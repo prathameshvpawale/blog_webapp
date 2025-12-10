@@ -1,0 +1,108 @@
+Class Diagram for "Blog" application (UML-style, textual + PlantUML)
+
+Overview
+- This class diagram models core domain classes in the project: `User` (Django), `Profile` (users app), and `Post` (blog app).
+- Shows attributes, key operations, and relationships (associations and multiplicities).
+
+UML Textual Representation
+
+Class: User (Django builtin)
+- Attributes:
+  - id: Integer (PK)
+  - username: String
+  - email: String
+  - password: String (hashed)
+  - is_active: Boolean
+  - is_staff: Boolean
+- Operations: (provided by Django auth)
+  - check_password(password)
+  - set_password(password)
+
+Class: Profile
+- Attributes:
+  - id: Integer (PK)
+  - user: OneToOne(User)  -- association to `User`
+  - image: ImageField (path under `profile_pics/`)
+- Operations:
+  - __str__() : String
+
+Class: Post
+- Attributes:
+  - id: Integer (PK)
+  - title: CharField(max_length=100)
+  - content: FroalaField (stores HTML content)
+  - image: ImageField (upload_to='blog_pics/') (optional)
+  - date_posted: DateTimeField (default=timezone.now)
+  - author: ForeignKey(User, on_delete=CASCADE)
+- Operations:
+  - __str__() : String
+  - get_absolute_url() : URL
+
+Relationships
+- User "1" --- "1" Profile
+  - Each `User` has exactly one `Profile` (OneToOne). Profile.user -> User
+- User "1" --- "*" Post
+  - A `User` can author many `Post` records; each `Post` has exactly one `author`.
+- Post references media stored in filesystem via ImageField; media served from `MEDIA_ROOT`.
+
+Design notes
+- `Profile.image` and `Post.image` are stored in the filesystem (ImageField) and contain the path relative to `MEDIA_ROOT`.
+- `content` uses `FroalaField` which stores HTML; images embedded inside the content are stored separately via Froala upload endpoints.
+- Deletion: `Post` author's deletion cascades to posts (on_delete=models.CASCADE).
+
+PlantUML (paste into PlantUML to render):
+
+@startuml BlogClassDiagram
+' Entities
+class User {
+  +Integer id
+  +String username
+  +String email
+  +String password
+  +Boolean is_active
+  +Boolean is_staff
+  +check_password(pwd)
+  +set_password(pwd)
+}
+
+class Profile {
+  +Integer id
+  +ImageField image
+  +__str__() : String
+}
+
+class Post {
+  +Integer id
+  +String title
+  +FroalaField content
+  +ImageField image
+  +DateTime date_posted
+  +get_absolute_url() : URL
+  +__str__() : String
+}
+
+' Relationships
+User "1" -- "1" Profile : has >
+User "1" -- "*" Post : authors >
+
+' Multiplicities and direction show User -> Posts (1 to many) and User -> Profile (1 to 1)
+
+@enduml
+
+Example: Generate PNG via PlantUML
+1. Save the PlantUML block above to `diagram/blog_class_diagram.puml`.
+2. Run (if PlantUML installed):
+
+```pwsh
+plantuml diagram/blog_class_diagram.puml
+```
+
+This produces `diagram/blog_class_diagram.png` (or `.svg`) in the same directory.
+
+File created: `diagram/ClassDiagram.txt`
+
+If you want me to:
+- Produce separate `.puml` files for each diagram and add them to the repo, or
+- Render PNG/SVG here (requires PlantUML runtime available), or
+- Add additional classes (forms, views, or serializers) to the diagram,
+say which and I'll proceed.

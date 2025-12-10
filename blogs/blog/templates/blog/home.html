@@ -1,0 +1,70 @@
+{% extends "blog/base.html" %}
+{% block content %}
+
+
+
+<div class="container-fluid px-0">
+  {% for post in posts %}
+  <div class="card rounded-0 mb-3 shadow-sm">
+    <div class="container py-3">
+      <div class="row align-items-center">
+        <div class="col-md-9">
+          <div class="card-header bg-transparent p-0 mb-2">
+            <a class="me-2" href="{% url 'blog:user-post' post.author.username %}">
+              {{ post.author }}
+            </a>
+          </div>
+
+          <div class="card-body p-0">
+            <h5 class="card-title mb-2">
+              <a class="article-title" href="{% url 'blog:post-detail' post.pk %}">
+                {{ post.title }}
+              </a>
+            </h5>
+
+            <a href="{% url 'blog:post-detail' post.pk %}" class="btn btn-primary">Read more</a>
+          </div>
+        </div>
+        <div class="col-md-3 text-end">
+          {% if post.thumbnail %}
+          <a href="{% url 'blog:post-detail' post.pk %}">
+            <img src="{{ post.thumbnail.url }}" alt="{{ post.title }} thumbnail" class="img-fluid rounded"
+              style="max-height:120px; object-fit:cover;">
+          </a>
+          {% elif post.image %}
+          <a href="{% url 'blog:post-detail' post.pk %}">
+            <img src="{{ post.image.url }}" alt="{{ post.title }} image" class="img-fluid rounded"
+              style="max-height:120px; object-fit:cover;">
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+
+{% if page_obj.has_previous %}
+<a class="btn btn-outline-info pagination-btn" href="?page=1">First</a>
+<a class="btn btn-outline-info pagination-btn" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+{% endif %}
+
+{% for num in page_obj.paginator.page_range %}
+{% if page_obj.number == num %}
+<a class="btn btn-info pagination-btn">{{ num }}</a>
+{% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %} <a
+  class="btn btn-outline-info pagination-btn" href="?page={{ num }}">{{ num }}</a>
+  {% endif %}
+  {% endfor %}
+
+  {% if page_obj.has_next %}
+  <a class="btn btn-outline-info pagination-btn" href="?page={{ page_obj.next_page_number }}">Next</a>
+  <a class="btn btn-outline-info pagination-btn" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+  {% endif %}
+
+  {% endif %}
+
+  {% endblock content %}

@@ -1,0 +1,97 @@
+Component Diagram for "Blog" application (UML-style, textual + PlantUML)
+
+Overview
+- This diagram shows high-level components of the Django-based blog application and their connectors (interfaces and dependencies).
+- Components focused: Web UI (browser + Froala), Django application (views, models, templates, URL router), Media/Storage, Database, Auth, Admin, and external Email service.
+
+Key Components (textual)
+- Browser / Client
+  - Responsibilities: render HTML, run Froala editor JS, send HTTP requests (form submit, AJAX upload)
+  - Interfaces: HTTP(S) requests to Web Server, AJAX to upload endpoints
+
+- Static Assets
+  - Bootstrap CSS, custom CSS/JS, Froala client JS
+  - Served via Django `static` in dev or CDN in production
+
+- Froala Editor (client component)
+  - Provides rich-text editing UI and performs AJAX uploads to `/froala_editor/upload_image/`.
+  - Connects to Froala upload endpoints (server component).
+
+- Django Web Application
+  - Subcomponents:
+    - URL Router (`core/urls.py`): maps incoming URLs to Views
+    - Views (blog.views, users.views): handle requests, coordinate models/templates
+    - Templates (Django templates): render HTML for browser
+    - Forms & Widgets: `PostForm` with `FroalaEditor` widget
+    - Custom Froala handlers: `froala_image_upload` (stores media in `MEDIA_ROOT`)
+
+- Models / Persistence
+  - Post model (blog.models.Post): stores title, content (FroalaField), image path, date_posted, author(FK)
+  - Profile model (users.models.Profile): stores user image and relation to `User`
+  - Database (SQLite in this workspace): persists model records
+
+- Media Storage
+  - Local filesystem `MEDIA_ROOT` (e.g., `media/blog_pics/...`) for uploaded images and profile pics
+  - Exposed at `MEDIA_URL` for development via Django static serving or served by web server in production
+
+- Authentication & Authorization
+  - Django auth subsystem: `User` model, session management, login/logout
+  - Used by Views to gate create/edit/delete actions
+
+- Admin Component
+  - Django admin site for moderation and user/post management
+
+- External Services
+  - Email Service: optional, used by registration or notifications
+
+Connectors / Interfaces
+- Browser -> Django Web App: HTTP(S) requests (GET/POST), form submits, REST-like AJAX
+- FroalaJS -> Django Upload View: AJAX POST to `/froala_editor/upload_image/` (multipart/form-data)
+- Django Views -> Models: ORM calls to query/create/update/delete
+- Django Views -> Media Storage: write/read image files
+- Django -> Email Service: outgoing SMTP/API calls (optional)
+
+PlantUML Component Diagram
+
+@startuml BlogComponentDiagram
+left to right direction
+skinparam componentStyle rectangle
+
+[Browser] --> [Django Web App] : HTTP(S)
+[Browser] --> [Static Assets] : GET
+[Browser] --> [Froala Editor JS] : executes
+[Froala Editor JS] --> [Django Web App] : POST /froala_editor/upload_image/
+
+component "Django Web App" {
+  [URL Router]
+  [Views]
+  [Templates]
+  [Forms & Widgets]
+  [Froala Upload Handler]
+}
+
+[Views] --> [Models] : ORM
+[Views] --> [Media Storage] : read/write files
+[Views] --> [Email Service] : send email
+[Views] --> [Admin] : admin actions
+
+[Models] --> [Database]
+[Media Storage] --> [File System]
+
+[Static Assets] ..> [Browser] : served
+[Admin] ..> [Database]
+[Authentication] .down.> [Views] : uses
+
+@enduml
+
+Usage / Notes
+- Save the PlantUML block to `diagram/component_diagram.puml` and render with PlantUML.
+- This component-level view helps plan deployment boundaries: which parts run in browser, which on the webserver, and what external services are required.
+
+File created: `diagram/ComponentDiagram.txt`
+
+If you want I can:
+- Create `diagram/component_diagram.puml` (PlantUML file) in repo,
+- Render PNG/SVG images (requires PlantUML runtime), or
+- Add deployment notes and which components should be containerized or served via CDN.
+

@@ -1,0 +1,18 @@
+@startuml EditPostWithUpload
+actor User
+participant FroalaJS
+participant UploadView
+participant Storage
+participant PostEdit
+participant DB
+
+User -> FroalaJS: insert new image
+FroalaJS -> UploadView: POST /froala_editor/upload_image/ (file, post_id=42)
+UploadView -> Storage: write to media/blog_pics/<username>/post_42/images/<uuid>
+Storage --> UploadView: ok
+UploadView --> FroalaJS: {"link":"/media/..."}
+User -> PostEdit: submit edit form
+PostEdit -> DB: update post 42
+DB --> PostEdit: ok
+PostEdit --> User: redirect
+@enduml

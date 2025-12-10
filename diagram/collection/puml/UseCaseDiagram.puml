@@ -1,0 +1,33 @@
+@startuml
+left to right direction
+actor Visitor
+actor RegisteredUser as User
+actor Admin
+rectangle "Blog Web App" {
+  Visitor -- (Browse Posts)
+  Visitor -- (View Post Details)
+  Visitor -- (Register)
+  Visitor -- (Login/Logout)
+
+  User -- (Browse Posts)
+  User -- (View Post Details)
+  User -- (Create Post)
+  User -- (Edit Post)
+  User -- (Delete Post)
+  User -- (Comment on Post)
+  User -- (Delete Own Comment)
+  User -- (Upload Image)
+  User -- (Manage Profile)
+
+  Admin -- (Moderate Content)
+  Admin -- (Admin Manage Users)
+  Admin -- (Delete Post)
+
+  (Comment on Post) .u.> (View Post Details) : <<extend>>
+  (Delete Own Comment) .u.> (Comment on Post) : <<extend>>
+
+  (Create Post) .u.> (Upload Image) : <<extend>>
+  (Edit Post) .u.> (Upload Image) : <<extend>>
+  (Register) .u.> (Email Service) : <<include>>
+}
+@enduml

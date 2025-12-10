@@ -1,0 +1,136 @@
+Activity Diagrams for "Blog" application (UML-style, textual)
+
+Notes / Legend
+- Initial node: (start)
+- Final node: (end)
+- Action / Activity: [Action]
+- Flow / Transition: ->
+- Decision / Merge (guard): {condition} ->
+- Fork / Join: ===> (parallel branches shown with indentation)
+- Swimlanes: separated by headers; show which actor/component performs actions
+- Exception / Error flows: prefixed with [!]
+
+-----------------------------
+Diagram 1 — Create Post (includes Froala image upload)
+Swimlanes: User | Web UI (Froala) | Server (Django) | Storage
+
+(start)
+[User] -> [Open Create Post page]
+[Web UI] -> [Render form + Froala editor]
+[User] -> [Enter title, enter content]
+[User] -> [Trigger Froala image upload]
+[Web UI (Froala)] -> [Prepare multipart/form-data request]
+{Has CSRF token?}
+  -- yes --> [Attach X-CSRFToken header]
+  -- no  --> [Abort upload] -> [! Upload fails: 403 CSRF]
+
+[Web UI] -> (AJAX POST) -> [Server: /froala_editor/upload_image/]
+[Server] -> [Validate request: method==POST, file present]
+{Valid file type and size?}
+  -- yes --> [Determine storage path: media/blog_pics/<username>/post_<id>/images/ or new_<timestamp>]
+                 -> [Generate unique filename]
+                 -> [Write file to disk/storage]
+                 -> [Return JSON {link: "/media/..."}]
+  -- no  --> [Return error JSON / 400]
+
+[Web UI] -> [Insert returned image link into editor content]
+[User] -> [Submit Create Post form]
+[Server] -> [Validate form + assign author]
+[Server] -> [Save Post record in Posts DB]
+[Server] -> [If cover image field present, assign saved file accordingly]
+[Server] -> [Redirect to Post detail or Post list]
+[end]
+
+Notes:
+- If user is unauthenticated, upload still allowed but saved under `anonymous` folder (or blocked per policy).
+- Cleaning of orphan images: server may implement background job to remove files unused by any post.
+
+-----------------------------
+Diagram 2 — Edit Post (integrated with Create flow)
+Swimlanes: User | Web UI (Froala) | Server | Storage
+
+(start)
+[User] -> [Open Edit Post page for post_id]
+[Web UI] -> [Load existing content (contains image links)]
+[User] -> [Change content or upload new image via Froala]
+[Web UI] -> (AJAX upload) -> [Server: /froala_editor/upload_image/ (post_id included)]
+[Server] -> [Save file under media/blog_pics/<username>/post_<post_id>/images/]
+[Web UI] -> [Insert returned link into editor content]
+[User] -> [Submit Edit form]
+[Server] -> [Validate and update Post record]
+[Server] -> [Optionally delete replaced/removed images]
+[end]
+
+-----------------------------
+Diagram 3 — User Registration / Login
+Swimlanes: User | Client Browser | Server (Auth) | Users DB
+
+(start)
+[User] -> [Open Register page]
+[Client] -> [Fill registration form (username, email, password, profile pic opt.)]
+[Client] -> (POST) -> [Server: register view]
+[Server] -> [Validate form fields]
+{Valid?}
+  -- yes --> [Create User record in Users DB]
+               -> [If profile pic uploaded: save under MEDIA_ROOT/profile_pics/<username>/filename]
+               -> [Log user in or redirect to login]
+  -- no  --> [Return form with errors]
+[end]
+
+Login flow (short):
+(start)
+[User] -> [Open Login page]
+[Client] -> [Submit credentials (POST)]
+[Server] -> [Authenticate against Users DB]
+{Authenticated?}
+  -- yes --> [Create session, redirect to next page]
+  -- no  --> [Return login with error message]
+[end]
+
+-----------------------------
+Diagram 4 — View Post / Content Delivery
+Swimlanes: User | Web UI (Browser) | Server (Render) | Storage (MEDIA)
+
+(start)
+[User] -> [Request / (home) or /post/<id>/]
+[Server] -> [Query Posts DB for requested data]
+[Server] -> [Render template with post.content and media links]
+[Browser] -> [Request media resources (image URLs) -> served by Django dev server or web server (industrial)]
+[Storage] -> [Return image bytes (HTTP 200)]
+[Browser] -> [Display page with images]
+[end]
+
+-----------------------------
+Diagram 5 — Delete Post (user or admin)
+Swimlanes: Actor (User/Admin) | Server | Posts DB | Storage
+
+(start)
+[Actor] -> [Request post delete (POST/Confirm)]
+[Server] -> [Authorize: is owner or is admin?]
+{Authorized?}
+  -- yes --> [Delete Post record from Posts DB or mark as deleted]
+               -> [If immediate cleanup: delete associated files in media/blog_pics/<username>/post_<id>/images/]
+               -> [Return success / redirect]
+  -- no  --> [Return 403 Forbidden]
+[end]
+
+-----------------------------
+Diagram 6 — Error Handling & Security (cross-cutting)
+- CSRF: All modifying POST endpoints must validate CSRF token. If missing, respond 403.
+- Validation: File type & size must be validated at upload handler; invalid uploads return 400.
+- Auth: Endpoints that modify resources must check authentication and authorization.
+- Storage errors: If write to disk fails, return 500 and log error; client should show upload failure.
+
+-----------------------------
+Formatting / UML principles followed
+- Each diagram shows: initial node, actions, decisions, flows (with guards where applicable), and final node.
+- Swimlanes indicate the actor or component responsible for actions.
+- Forks (parallel activities) are represented by grouped/indented branches where necessary.
+- Error/alternative flows are shown as explicit branches with guard conditions or labeled failure paths.
+
+If you want
+- I can convert these textual activity diagrams to PlantUML-format diagrams (text that renders with PlantUML), or
+- Insert one short JS snippet into `Post_form.html` to pass `post_id` and the CSRF token to Froala, or
+- Produce PNG/SVG diagrams (requires PlantUML or external tool).
+
+End of file

@@ -1,0 +1,121 @@
+Data Flow Diagrams for "Blog" application
+
+Context: Django-based blog application with users, posts, images (Froala editor), media storage, and admin.
+
+--- Level 0 (Context Diagram) ---
+
+   [User] ---> (Blog System) ---> [Posts DB]
+                       |--> [Media Files (MEDIA_ROOT)]
+                       |--> [Users DB]
+   [Admin] ---> (Blog System)
+
+Description:
+- External entities: User (anonymous or authenticated), Admin (site administrator).
+- Single process: Blog System — accepts input from users (register/login, create/edit posts, upload images) and serves content.
+- Data stores: Posts DB (post records), Users DB (user accounts), Media Files (uploaded images/files under `media/`).
+
+--- Level 1 (Decomposition of Blog System) ---
+
+                 +-----------------------------+
+                 |        Blog System          |
+                 |  1.0 Auth & Profile         |
+                 |  2.0 Post Management       |
+                 |  3.0 Media Management      |
+                 |  4.0 Content Delivery      |
+                 |  5.0 Admin Management      |
+                 +-----------------------------+
+
+Flows (numbered):
+- A1: User -> 1.0 (Register/Login) -> Users DB (create/update credentials/session)
+- B1: User -> 2.0 (Create/Edit/Delete Post) -> Posts DB (store post metadata)
+- C1: 2.0 -> 3.0 (request image upload) -> Media Files (store uploaded media)
+- D1: 4.0 (render pages) -> User (serves HTML + embedded media URLs)
+- E1: Admin -> 5.0 (site moderation/config) -> Posts DB / Users DB
+
+Notes:
+- 1.0 handles authentication, profile updates, and session management.
+- 2.0 handles post lifecycle (drafts, publish, edit, delete) and references uploaded media.
+- 3.0 handles direct file uploads (Froala endpoint), storage, and access control for media.
+- 4.0 constructs pages, lists, and serves media URLs (MEDIA_URL) in development.
+- 5.0 provides admin capabilities (moderation, user management).
+
+--- Level 2 (Decompose Post & Media Management) ---
+
+Process 2.0: Post Management
+  2.1 Create Post
+    - Input: title, content (HTML with image links), optional `image` cover file
+    - Output: new Post record -> Posts DB
+  2.2 Edit Post
+    - Input: post id, new content, new images
+    - Output: update Posts DB, possibly call 3.0 to store new media
+  2.3 Delete Post
+    - Input: post id
+    - Output: remove/mark deleted in Posts DB, optionally remove media files
+  2.4 List / View Posts
+    - Input: page request, filters
+    - Output: Post list or post details to 4.0 Content Delivery
+
+Process 3.0: Media Management
+  3.1 Receive Upload Request (Froala client)
+    - Endpoint: POST `/froala_editor/upload_image/` (AJAX)
+    - Accepts: file param (commonly `file`), optional `post_id`
+  3.2 Save File
+    - Persist to MEDIA_ROOT under configured upload path (e.g., `media/blog_pics/...`)
+  3.3 Return JSON
+    - Return `{ "link": "/media/....jpg" }` so editor embeds the image
+  3.4 Serve Media
+    - 4.0 uses returned link to display media; in dev Django serves via `django.conf.urls.static`
+
+Data Stores (detailed):
+- Users DB: `auth_user` or custom user model (username, email, password hash, profile pic path)
+- Posts DB: Post (id, title, content (HTML), author FK, created_at, updated_at, optional image field)
+- Media Files: Stored on disk under `MEDIA_ROOT` (ex: `media/blog_pics/<username>/...`)
+
+--- Level 3 (Detailed flow: Image upload and association with a post) ---
+
+Goal: Show exact steps and paths when a user uploads an image inside Froala editor.
+
+Actors & Components:
+ - User (browser) with Froala editor loaded on post form page (Create or Edit)
+ - Froala client-side JS
+ - Django view handling upload (`/froala_editor/upload_image/`)
+ - Django storage (filesystem) writing to `MEDIA_ROOT`
+ - Posts DB (when post is saved/updated)
+
+Flow steps (numbered):
+  L3-1: User opens "Create Post" (or Edit) page which contains Froala editor bound to field `content`.
+  L3-2: User triggers image upload in the editor (drag/drop or file select).
+  L3-3: Froala client performs AJAX POST to `imageUploadURL` (default `'/froala_editor/upload_image/'`).
+        - Request body: form-data with `file` (binary), and any extra params (e.g., `post_id` if available).
+        - Headers: include `X-CSRFToken` (Django requires CSRF for POST). If CSRF missing -> 403.
+  L3-4: Django receives request and routes to custom handler `froala_image_upload(request)` or default froala handler.
+  L3-5: Handler determines destination folder:
+        - If authenticated user: `username = request.user.username` else `anonymous`.
+        - If `post_id` provided: use `post_<post_id>` folder, otherwise `new_<timestamp>`.
+        - Subpath used: `blog_pics/<username>/post_<id>/images/` (example)
+  L3-6: Handler generates unique filename (UUID + original extension), writes file to disk at:
+        `MEDIA_ROOT/blog_pics/<username>/post_<id>/images/<uuid>.ext`.
+  L3-7: Handler responds with JSON: `{ "link": "/media/blog_pics/<username>/post_<id>/images/<uuid>.ext" }`.
+  L3-8: Froala client receives response and inserts `<img src="/media/...">` into editor content.
+  L3-9: When the user submits the post form, server-side saves Post record to Posts DB; the HTML in `content` includes the image URL returned earlier.
+  L3-10 (Optional): If the post model has a separate `image` (cover) field and the editor upload was intended as that cover, server-side should set `post.image` accordingly (assign the file or path).
+
+Security & operational notes:
+- CSRF: Ensure Froala's AJAX sends the `X-CSRFToken` header. Without it Django will return 403.
+- File validation: Validate file types and sizes in the upload handler to avoid arbitrary uploads.
+- Access control: Uploaded files under `media/` are served directly; protect sensitive media if needed (use signed URLs or serve via a view).
+- Clean-up: Consider deleting orphaned files when posts are deleted or images are replaced.
+- Upload path pattern: Using `media/blog_pics/<username>/post_<id>/images/` groups files by owner and post for easier maintenance/cleanup.
+
+Example request/response (short):
+- Request: POST `http://localhost:8000/froala_editor/upload_image/`
+  - form-data: `file` = binary image, `post_id` = `42`
+  - header: `X-CSRFToken: <csrftoken>`
+- Response: 200 OK
+  - body: `{ "link": "/media/blog_pics/jdoe/post_42/images/6a7b8c9d..jpg" }`
+
+Appendix: Quick mapping to your codebase
+- Upload endpoint: `core/urls.py` contains `path('froala_editor/upload_image/', blog.views.froala_image_upload, ...)` if you added a custom handler.
+- Save location: `core/settings.py` sets `MEDIA_ROOT` and `FROALA_EDITOR_UPLOAD_PATH` (example `blog_pics/`). The handler should combine these.
+
+--- End of DFD file ---

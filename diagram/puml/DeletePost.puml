@@ -1,0 +1,18 @@
+@startuml DeletePost
+actor Actor
+participant DeleteView
+participant PostsDB
+participant Storage
+
+Actor -> DeleteView: POST /post/<id>/delete
+DeleteView -> DeleteView: authorize
+alt authorized
+  DeleteView -> PostsDB: delete post
+  DeleteView -> Storage: delete /media/blog_pics/<username>/post_<id>/images/*
+  PostsDB --> DeleteView: ok
+  Storage --> DeleteView: ok
+  DeleteView --> Actor: redirect success
+else unauthorized
+  DeleteView --> Actor: 403 Forbidden
+end
+@enduml

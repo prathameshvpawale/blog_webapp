@@ -1,0 +1,13 @@
+@startuml ViewPost
+actor User
+participant PostDetail
+participant PostsDB
+participant Storage
+
+User -> PostDetail: GET /post/42/
+PostDetail -> PostsDB: SELECT post 42
+PostsDB --> PostDetail: post data
+PostDetail --> User: HTML with image URLs
+User -> Storage: GET /media/blog_pics/.../image.jpg
+Storage --> User: 200 image bytes
+@enduml

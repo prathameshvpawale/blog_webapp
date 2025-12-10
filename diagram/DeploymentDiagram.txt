@@ -1,0 +1,176 @@
+Deployment Diagram for "Blog" application (UML-style, textual + PlantUML)
+
+Purpose
+- Shows physical deployment of software artifacts (Django app, database, media storage, web server, CDN, background workers) across nodes and execution environments.
+- Useful for planning deployment, scaling, and infrastructure choices.
+
+Legend / Notation
+- Node: physical or virtual machine/container (shown as a box)
+- Artifact: deployable file/package (WAR, Docker image, static files)
+- Communication: arrows with protocol/port
+- Execution Environment: e.g., Docker container, Kubernetes Pod, VM
+
+Assumptions
+- Development: single machine serving Django dev server and static/media via `django.conf.urls.static`.
+- Production: recommended split—reverse proxy (Nginx), WSGI server (Gunicorn/uwsgi) running Django app in containers, separate Database (Postgres/MySQL), object storage (S3) for media, optional CDN for static/media, Redis for caching and Celery broker.
+
+--- High-level nodes & relationships ---
+
+Nodes (textual):
+- Client (Web Browser)
+  - Role: users access app via HTTP(S)
+  - Artifacts: HTML, CSS, JS (delivered by Web Server / CDN)
+
+- Reverse Proxy / Load Balancer (Nginx, HAProxy, Cloud LB)
+  - Listens: 80/443
+  - Routes: static files -> CDN or static server; /froala_editor/upload_image/ -> App server; / -> App server
+
+- CDN (optional) / Static File Server
+  - Serves: static assets (CSS/JS) and cached media
+  - Best for production for speed
+
+- Application Node(s)
+  - Execution environment: Docker container(s) / Kubernetes Pod(s)
+  - Components:
+    - WSGI server (Gunicorn / uWSGI)
+    - Django application code (artifact: `blog` and `users` apps, `manage.py`)
+    - Froala upload handler (view) available under `/froala_editor/upload_image/`
+  - Ports: communicate with Reverse Proxy over HTTP (internal, e.g., 8000)
+  - Scale: multiple instances behind Load Balancer for high traffic
+
+- Media Storage
+  - Dev: Local filesystem `MEDIA_ROOT` on the server (served by Django in DEBUG)
+  - Prod: Object Storage (S3, Google Cloud Storage)
+  - Access: App writes to storage via local FS driver or S3 API; media URLs proxied through CDN
+
+- Database Node
+  - Dev: SQLite (file-based) — only suitable for development
+  - Prod: PostgreSQL / MySQL running on separate managed service or container/VM
+  - Ports: 5432 (Postgres) or 3306 (MySQL)
+
+- Cache & Broker
+  - Redis: caching (Django cache) and Celery broker (message broker)
+  - Location: managed Redis or container
+
+- Background Worker(s)
+  - Execution environment: Celery worker containers
+  - Responsibilities: asynchronous tasks (e.g., sending emails, long-running cleanup, image processing)
+  - Communicates with Redis broker and Database/Storage as needed
+
+- Email Service (external)
+  - SMTP provider or third-party API (SendGrid, SES)
+  - App sends outgoing email to this service
+
+--- Deployment Artifacts ---
+- `app_image:myblog:latest` (Docker image containing Django, requirements, static collect output)
+- `static_files/` (collected static assets via `collectstatic`)
+- `media/*` (user uploads) — stored on S3 or filesystem
+- Database dump / migration artifacts (managed via Django migrations)
+
+--- Ports & Protocols ---
+- 80: HTTP (optional)
+- 443: HTTPS (TLS termination at Load Balancer / Nginx)
+- 8000: internal WSGI (Gunicorn) server
+- 5432: Postgres (DB)
+- Redis default: 6379
+
+--- Example Deployment Scenarios ---
+1) Development (single host):
+  - Node: Dev Laptop / VM
+    - Django runserver (port 8000)
+    - SQLite database file
+    - Local `media/` directory
+  - Access: Browser -> http://localhost:8000
+
+2) Production (containerized):
+  - Node: Load Balancer (managed)
+  - Node: Nginx reverse proxy (container) for SSL/TLS termination
+  - Node: App cluster (3x `app_image:myblog` containers behind Nginx)
+  - Node: Database (managed RDS Postgres)
+  - Node: Object Storage (S3) for media
+  - Node: Redis (managed) for cache & broker
+  - Node: Celery worker cluster for background tasks
+  - Optional: CDN for static/media caching
+
+--- PlantUML Deployment Diagram ---
+Paste the block below into PlantUML to render a deployment diagram.
+
+@startuml BlogDeployment
+node "Client (Browser)" as Client
+node "Load Balancer / Reverse Proxy\n(Nginx)" as LB
+node "CDN / Static Server" as CDN
+
+node "App Host(s)" as AppHost {
+  [Gunicorn]
+  [Django App Container\n(app_image:myblog)]
+}
+
+node "Database Server" as DB
+node "Object Storage / S3" as S3
+node "Redis (Cache / Broker)" as Redis
+node "Celery Workers" as Celery
+node "SMTP / Email Service" as Email
+
+Client --> LB : HTTPS (443)
+LB --> CDN : GET static (cache)
+LB --> AppHost : HTTP  -> Gunicorn (8000)
+AppHost --> DB : SQL (5432)
+AppHost --> S3 : PUT/GET (S3 API)
+AppHost --> Redis : cache/broker (6379)
+AppHost --> Email : SMTP/API
+Celery --> Redis : subscribe / publish
+Celery --> DB : read/write
+Celery --> S3 : read/write
+
+@enduml
+
+--- Deployment Notes & Best Practices ---
+- TLS: terminate TLS at LB or Nginx, enforce HTTPS (HSTS) in production.
+- Static files: serve via CDN after `collectstatic`. Do not use Django dev static serving in production.
+- Media uploads: prefer S3 (or equivalent) with pre-signed URLs for direct browser upload (reduces load on app servers).
+- Database: use managed Postgres for reliability; keep DB on private network accessible only to app nodes.
+- Scaling: scale app nodes horizontally; use Redis for shared sessions or use a central session store.
+- Health checks: configure LB health checks to app endpoints (e.g., `/health/`).
+- Logging & Monitoring: centralize logs (ELK/CloudWatch) and add metrics (Prometheus/Grafana).
+- Secrets: store DB credentials / API keys in environment variables or a secrets manager (Vault, AWS Secrets Manager).
+
+--- Example Docker Compose (simplified) ---
+# (for small-scale testing only)
+# docker-compose.yml (conceptual)
+# web: nginx -> app -> db
+
+# version: '3'
+# services:
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_DB: blog_db
+#       POSTGRES_USER: blog_user
+#       POSTGRES_PASSWORD: secret
+#   redis:
+#     image: redis:7
+#   app:
+#     build: .
+#     image: app_image:myblog
+#     environment:
+#       - DATABASE_URL=postgres://blog_user:secret@db:5432/blog_db
+#       - REDIS_URL=redis://redis:6379/0
+#     depends_on:
+#       - db
+#       - redis
+#   worker:
+#     image: app_image:myblog
+#     command: celery -A core worker -l info
+#     depends_on:
+#       - redis
+#   nginx:
+#     image: nginx:latest
+#     ports:
+#       - "80:80"
+#     depends_on:
+#       - app
+
+--- Final Remarks ---
+- `diagram/DeploymentDiagram.txt` created in repo.
+- If you prefer a specific target (e.g., AWS ECS, Kubernetes manifests, Docker Compose full file), I can generate a starter deployment manifest.
+- I can also create the PlantUML `.puml` file and attempt to render PNG/SVG if you want those images added to the repo.
