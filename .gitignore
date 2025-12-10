@@ -9,3 +9,10 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Database
+# Ignore SQLite database files
+/db.sqlite3
+*.sqlite3
+# If your project contains db file inside `blogs/`, ignore it too
+/blogs/db.sqlite3
