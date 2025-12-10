@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,8 +39,10 @@ if env_path.exists():
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Read SECRET_KEY from environment (DJANGO_SECRET_KEY) with a safe fallback
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-e28h16l9pd7uq=u^4iuxi1wzdz&&wy=tzgp^=79ul#hzr(uw+p')
+# Read SECRET_KEY from environment (DJANGO_SECRET_KEY). Do NOT store secrets in source.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured('The DJANGO_SECRET_KEY environment variable is not set. Add it to your .env or set it in the environment.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
