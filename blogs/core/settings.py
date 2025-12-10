@@ -17,22 +17,24 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env in project root (simple, no extra dependency)
-env_path = BASE_DIR / '.env'
-if env_path.exists():
-    try:
-        for raw_line in env_path.read_text(encoding='utf-8').splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith('#'):
-                continue
-            if '=' in line:
-                k, v = line.split('=', 1)
-                v = v.strip().strip('\"').strip("\'")
-                # don't overwrite existing environment variables
-                os.environ.setdefault(k.strip(), v)
-    except Exception:
-        # If reading .env fails for any reason, continue with existing env
-        pass
+# Load environment variables from parent-level `that.envfile` first, then project `.env`.
+# This keeps secrets outside the project directory when desired.
+env_files = [BASE_DIR.parent / 'that.envfile', BASE_DIR / '.env']
+for env_path in env_files:
+    if env_path.exists():
+        try:
+            for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    k, v = line.split('=', 1)
+                    v = v.strip().strip('"').strip("\'")
+                    # don't overwrite existing environment variables
+                    os.environ.setdefault(k.strip(), v)
+        except Exception:
+            # If reading .env fails for any reason, continue with existing env
+            pass
 
 
 # Quick-start development settings - unsuitable for production

@@ -22,3 +22,13 @@ venv/
 
 # PlantUML jar (optional)
 plantuml.jar
+
+# Parent-level env file (keeps secrets outside project)
+/that.envfile
+
+# Diagram outputs (generated) — optional to ignore if you prefer storing images in repo
+/diagram/pngs/
+/diagram/collection/pngs/
+
+# Ignore any generated sequence diagrams
+diagram/collection/puml/sequence/*.png
