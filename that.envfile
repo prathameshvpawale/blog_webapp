@@ -1,3 +1,0 @@
-# Central environment file outside the project folder
-# Keep this file out of version control. It contains sensitive values.
-DJANGO_SECRET_KEY="django-insecure-e28h16l9pd7uq=u^4iuxi1wzdz&&wy=tzgp^=79ul#hzr(uw+p"
