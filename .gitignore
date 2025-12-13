@@ -16,3 +16,5 @@ wheels/
 *.sqlite3
 # If your project contains db file inside `blogs/`, ignore it too
 /blogs/db.sqlite3
+
+that.envfiles
